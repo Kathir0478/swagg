@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { useRequireRole } from "@/lib/use-require-role"
-import { apiRequest, ApiError } from "@/lib/api"
+import { apiRequest, ApiError, getAccessToken } from "@/lib/api"
 import { AddressMapPicker, type LocationValue } from "@/components/address-map-picker"
 import { OtpInput } from "@/components/otp-input"
 import { SiteHeader } from "@/components/site-header"
@@ -53,13 +53,36 @@ export default function OnboardingPage() {
   const [vehicleNumber, setVehicleNumber] = useState("")
   const [dlNumber, setDlNumber] = useState("")
 
+  // Fetch user profile on mount and redirect if already registered
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const token = getAccessToken()
+      if (!token) return
+
+      try {
+        const profile = await apiRequest<{ roles: Role[]; registeredRoles: Role[] }>("/auth/me", { auth: true })
+        
+        // If user has registered roles, redirect to the first available dashboard
+        if (profile.data?.registeredRoles && profile.data.registeredRoles.length > 0) {
+          const firstRole = profile.data.registeredRoles[0] as Choice
+          selectRole(firstRole as Role)
+          router.push(roleHome[firstRole])
+        }
+      } catch (err) {
+        // If profile fetch fails, continue with onboarding
+        console.error("Failed to fetch user profile:", err)
+      }
+    }
+
+    fetchUserProfile()
+  }, [router, selectRole])
+
   if (!ready) return null
 
   const buildBody = (c: Choice) => {
     const time = (t: string) => (t ? new Date(`1970-01-01T${t}:00`).toISOString() : undefined)
     if (c === "CUSTOMER") {
       return {
-        address: location.address || undefined,
         dob: dob ? new Date(dob).toISOString() : undefined,
         gender: gender || undefined,
         lat: location.lat ?? undefined,
@@ -77,7 +100,6 @@ export default function OnboardingPage() {
       }
     }
     return {
-      address: location.address || undefined,
       dob: dob ? new Date(dob).toISOString() : undefined,
       gender: gender || undefined,
       lat: location.lat ?? undefined,
@@ -90,6 +112,58 @@ export default function OnboardingPage() {
   const requestOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!choice) return
+
+    // Validation
+    if (!location.address || location.lat === null || location.lng === null) {
+      toast.error("Please select a location on the map.")
+      return
+    }
+
+    if (choice === "CUSTOMER") {
+      if (!dob) {
+        toast.error("Please enter your date of birth.")
+        return
+      }
+      if (!gender) {
+        toast.error("Please select your gender.")
+        return
+      }
+    }
+
+    if (choice === "RESTAURANT") {
+      if (!description) {
+        toast.error("Please enter a description for your restaurant.")
+        return
+      }
+      if (!opentime) {
+        toast.error("Please enter opening time.")
+        return
+      }
+      if (!closetime) {
+        toast.error("Please enter closing time.")
+        return
+      }
+    }
+
+    if (choice === "RIDER") {
+      if (!dob) {
+        toast.error("Please enter your date of birth.")
+        return
+      }
+      if (!gender) {
+        toast.error("Please select your gender.")
+        return
+      }
+      if (!vehicleNumber) {
+        toast.error("Please enter your vehicle number.")
+        return
+      }
+      if (!dlNumber) {
+        toast.error("Please enter your driving license number.")
+        return
+      }
+    }
+
     setLoading(true)
     try {
       const res = await apiRequest(`/${roleMeta[choice].base}/register/request`, {

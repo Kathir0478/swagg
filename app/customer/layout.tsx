@@ -1,13 +1,24 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 import { useRequireRole } from "@/lib/use-require-role"
+import { useAuth } from "@/components/auth-provider"
 import { CartProvider } from "@/components/cart-provider"
 import { SiteHeader } from "@/components/site-header"
 import { Loader2 } from "lucide-react"
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const { ready } = useRequireRole("CUSTOMER")
+  const { roles } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (roles.includes("RIDER")) {
+      router.replace("/rider")
+    }
+  }, [roles, router])
 
   if (!ready) {
     return (
