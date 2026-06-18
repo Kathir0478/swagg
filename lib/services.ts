@@ -1,145 +1,181 @@
 import { apiRequest } from "./api"
+import { buildEndpointPath, getEndpointConfig } from "./api-endpoints"
 import type { Cart, Customer, Food, FoodCategory, Order, Restaurant, Rider } from "./types"
 
 // ---------- Restaurants ----------
 export async function listRestaurants() {
-    const res = await apiRequest<Restaurant[]>("/restaurants/list")
+    const config = getEndpointConfig('RESTAURANTS_LIST')
+    const res = await apiRequest<Restaurant[]>(config.path, { method: config.method, auth: config.auth })
     return res.data ?? []
 }
 
 export async function getRestaurant(id: string) {
-    const res = await apiRequest<Restaurant>(`/restaurants/${id}`, { auth: true })
+    const path = buildEndpointPath('RESTAURANTS_GET', { id })
+    const config = getEndpointConfig('RESTAURANTS_GET')
+    const res = await apiRequest<Restaurant>(path, { method: config.method, auth: config.auth })
     return res.data
 }
 
 export async function updateRestaurant(body: Record<string, unknown>) {
-    return apiRequest<Restaurant>("/restaurants/update", { method: "PUT", body, auth: true })
+    const config = getEndpointConfig('RESTAURANTS_UPDATE')
+    return apiRequest<Restaurant>(config.path, { method: config.method, body, auth: config.auth })
 }
 
 // ---------- Customers ----------
 export async function getCustomer(id: string) {
-    const res = await apiRequest<Customer>(`/customers/${id}`, { auth: true })
+    const path = buildEndpointPath('CUSTOMERS_GET', { id })
+    const config = getEndpointConfig('CUSTOMERS_GET')
+    const res = await apiRequest<Customer>(path, { method: config.method, auth: config.auth })
     return res.data
 }
 
 export async function updateCustomer(body: Record<string, unknown>) {
-    return apiRequest<Customer>("/customers/update", { method: "PUT", body, auth: true })
+    const config = getEndpointConfig('CUSTOMERS_UPDATE')
+    return apiRequest<Customer>(config.path, { method: config.method, body, auth: config.auth })
 }
 
 // ---------- Riders ----------
 export async function getRider(id: string) {
-    const res = await apiRequest<Rider>(`/riders/${id}`, { auth: true })
+    const path = buildEndpointPath('RIDERS_GET', { id })
+    const config = getEndpointConfig('RIDERS_GET')
+    const res = await apiRequest<Rider>(path, { method: config.method, auth: config.auth })
     return res.data
 }
 
 export async function updateRider(body: Record<string, unknown>) {
-    return apiRequest<Rider>("/riders/update", { method: "PUT", body, auth: true })
+    const config = getEndpointConfig('RIDERS_UPDATE')
+    return apiRequest<Rider>(config.path, { method: config.method, body, auth: config.auth })
 }
 
 export async function deleteRider(riderId: string) {
-    return apiRequest(`/riders/${riderId}`, { method: "DELETE", auth: true })
+    const path = buildEndpointPath('RIDERS_DELETE', { id: riderId })
+    const config = getEndpointConfig('RIDERS_DELETE')
+    return apiRequest(path, { method: config.method, auth: config.auth })
 }
 
 // ---------- Foods ----------
 export async function listFoodsByRestaurant(restaurantId: string, availableOnly = false) {
-    const path = availableOnly
-        ? `/foods/restaurant/${restaurantId}/available`
-        : `/foods/restaurant/${restaurantId}`
-    const res = await apiRequest<Food[]>(path, { auth: true })
+    const endpointKey = availableOnly ? 'FOODS_LIST_AVAILABLE' : 'FOODS_LIST_BY_RESTAURANT'
+    const path = buildEndpointPath(endpointKey, { restaurantId })
+    const config = getEndpointConfig(endpointKey)
+    const res = await apiRequest<Food[]>(path, { method: config.method, auth: config.auth })
     return res.data ?? []
 }
 
 export async function createFood(body: Record<string, unknown>) {
-    return apiRequest<Food>("/foods/create", { method: "POST", body, auth: true })
+    const config = getEndpointConfig('FOODS_CREATE')
+    return apiRequest<Food>(config.path, { method: config.method, body, auth: config.auth })
 }
 
 export async function updateFood(foodId: string, body: Record<string, unknown>) {
-    return apiRequest<Food>(`/foods/${foodId}/update`, { method: "PUT", body, auth: true })
+    const path = buildEndpointPath('FOODS_UPDATE', { foodId })
+    const config = getEndpointConfig('FOODS_UPDATE')
+    return apiRequest<Food>(path, { method: config.method, body, auth: config.auth })
 }
 
 export async function deleteFood(foodId: string) {
-    return apiRequest(`/foods/${foodId}`, { method: "DELETE", auth: true })
+    const path = buildEndpointPath('FOODS_DELETE', { foodId })
+    const config = getEndpointConfig('FOODS_DELETE')
+    return apiRequest(path, { method: config.method, auth: config.auth })
 }
 
 export async function setFoodAvailability(foodId: string, isAvailable: boolean) {
-    return apiRequest<Food>(`/foods/${foodId}/availability?isAvailable=${isAvailable}`, {
-        method: "PATCH",
-        auth: true,
+    const path = buildEndpointPath('FOODS_SET_AVAILABILITY', { foodId })
+    const config = getEndpointConfig('FOODS_SET_AVAILABILITY')
+    return apiRequest<Food>(`${path}?isAvailable=${isAvailable}`, {
+        method: config.method,
+        auth: config.auth,
     })
 }
 
 // ---------- Carts ----------
 export async function getActiveCart() {
-    const res = await apiRequest<Cart>("/carts/active", { auth: true })
+    const config = getEndpointConfig('CARTS_GET_ACTIVE')
+    const res = await apiRequest<Cart>(config.path, { method: config.method, auth: config.auth })
     return res.data
 }
 
 export async function createCart(restaurantId: string) {
-    const res = await apiRequest<Cart>("/carts/create", {
-        method: "POST",
+    const config = getEndpointConfig('CARTS_CREATE')
+    const res = await apiRequest<Cart>(config.path, {
+        method: config.method,
         body: { restaurantId },
-        auth: true,
+        auth: config.auth,
     })
     return res.data
 }
 
 export async function addCartItem(cartId: string, foodId: string, quantity = 1) {
-    const res = await apiRequest<Cart>(`/carts/${cartId}/items/add`, {
-        method: "POST",
+    const path = buildEndpointPath('CARTS_ADD_ITEM', { cartId })
+    const config = getEndpointConfig('CARTS_ADD_ITEM')
+    const res = await apiRequest<Cart>(path, {
+        method: config.method,
         body: { foodId, quantity },
-        auth: true,
+        auth: config.auth,
     })
     return res.data
 }
 
 export async function removeCartItem(cartId: string, foodId: string, quantity = 1) {
-    const res = await apiRequest<Cart>(`/carts/${cartId}/items/${foodId}?quantity=${quantity}`, {
-        method: "DELETE",
-        auth: true,
+    const path = buildEndpointPath('CARTS_REMOVE_ITEM', { cartId, foodId })
+    const config = getEndpointConfig('CARTS_REMOVE_ITEM')
+    const res = await apiRequest<Cart>(`${path}?quantity=${quantity}`, {
+        method: config.method,
+        auth: config.auth,
     })
     return res.data
 }
 
 export async function deleteCart(cartId: string) {
-    return apiRequest(`/carts/${cartId}`, { method: "DELETE", auth: true })
+    const path = buildEndpointPath('CARTS_DELETE', { cartId })
+    const config = getEndpointConfig('CARTS_DELETE')
+    return apiRequest(path, { method: config.method, auth: config.auth })
 }
 
 // ---------- Orders ----------
 export async function createOrder(cartId: string, instruction?: string) {
-    const res = await apiRequest<Order>("/orders/create", {
-        method: "POST",
+    const config = getEndpointConfig('ORDERS_CREATE')
+    const res = await apiRequest<Order>(config.path, {
+        method: config.method,
         body: { cartId, instruction },
-        auth: true,
+        auth: config.auth,
     })
     return res.data
 }
 
 export async function getCustomerOrders() {
-    const res = await apiRequest<Order[]>("/orders/customer", { auth: true })
+    const config = getEndpointConfig('ORDERS_GET_CUSTOMER')
+    const res = await apiRequest<Order[]>(config.path, { method: config.method, auth: config.auth })
     return res.data ?? []
 }
 
 export async function getRiderOrders() {
-    const res = await apiRequest<Order[]>("/orders/rider", { auth: true })
+    const config = getEndpointConfig('ORDERS_GET_RIDER')
+    const res = await apiRequest<Order[]>(config.path, { method: config.method, auth: config.auth })
     return res.data ?? []
 }
 
 export async function getRestaurantOrders() {
-    const res = await apiRequest<Order[]>("/orders/restaurant", { auth: true })
+    const config = getEndpointConfig('ORDERS_GET_RESTAURANT')
+    const res = await apiRequest<Order[]>(config.path, { method: config.method, auth: config.auth })
     return res.data ?? []
 }
 
 export async function getOrder(orderId: string) {
-    const res = await apiRequest<Order>(`/orders/${orderId}`, { auth: true })
+    const path = buildEndpointPath('ORDERS_GET', { orderId })
+    const config = getEndpointConfig('ORDERS_GET')
+    const res = await apiRequest<Order>(path, { method: config.method, auth: config.auth })
     return res.data
 }
 
 export async function assignRider(orderId: string, riderId: string) {
-    return apiRequest<Order>(`/orders/${orderId}/assign-rider/${riderId}`, {
-        method: "POST",
-        auth: true,
+    const path = buildEndpointPath('ORDERS_ASSIGN_RIDER', { orderId, riderId })
+    const config = getEndpointConfig('ORDERS_ASSIGN_RIDER')
+    return apiRequest<Order>(path, {
+        method: config.method,
+        auth: config.auth,
     })
 }
 
 export const FOOD_CATEGORY_ENDPOINT = (restaurantId: string, category: FoodCategory) =>
-    `/foods/restaurant/${restaurantId}/category/${category}`
+    buildEndpointPath('FOODS_BY_CATEGORY', { restaurantId, category })

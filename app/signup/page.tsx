@@ -8,6 +8,7 @@ import { AuthShell } from "@/components/auth-shell"
 import { OtpInput } from "@/components/otp-input"
 import { useAuth } from "@/components/auth-provider"
 import { apiRequest, ApiError } from "@/lib/api"
+import { getEndpointConfig } from "@/lib/api-endpoints"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -30,7 +31,8 @@ export default function SignupPage() {
     }
     setLoading(true)
     try {
-      const res = await apiRequest("/users/signup/request", { method: "POST", body: form })
+      const config = getEndpointConfig('USERS_SIGNUP_REQUEST')
+      const res = await apiRequest(config.path, { method: config.method, body: form })
       toast.success(res.message || "OTP sent to your phone.")
       setStep("otp")
     } catch (err) {
@@ -48,8 +50,9 @@ export default function SignupPage() {
     }
     setLoading(true)
     try {
-      const res = await apiRequest("/users/signup/verify", {
-        method: "POST",
+      const config = getEndpointConfig('USERS_SIGNUP_VERIFY')
+      const res = await apiRequest(config.path, {
+        method: config.method,
         body: { phoneNumber: form.phoneNumber, otpCode: otp },
       })
       if (res.accessToken && res.refreshToken) {

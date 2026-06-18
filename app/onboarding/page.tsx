@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { useRequireRole } from "@/lib/use-require-role"
 import { apiRequest, ApiError, getAccessToken } from "@/lib/api"
+import { buildEndpointPath, getEndpointConfig, API_ENDPOINTS } from "@/lib/api-endpoints"
 import { getCustomer, getRestaurant, getRider } from "@/lib/services"
 import { AddressMapPicker, type LocationValue } from "@/components/address-map-picker"
 import { OtpInput } from "@/components/otp-input"
@@ -16,8 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShoppingBag, Store, Bike, ArrowLeft, Check, Trash2 } from "lucide-react"
-import type { Gender, Role } from "@/lib/types"
+import { ShoppingBag, Store, Bike, ArrowLeft, Check, Trash2, X } from "lucide-react"
+import type { Gender, Role, ApiResponse } from "@/lib/types"
 
 type Choice = "CUSTOMER" | "RESTAURANT" | "RIDER"
 
@@ -52,7 +53,8 @@ export default function OnboardingPage() {
   const [dob, setDob] = useState("")
   const [gender, setGender] = useState<Gender | "">("")
   const [description, setDescription] = useState("")
-  const [imageurl, setImageurl] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState("")
   const [opentime, setOpentime] = useState("")
   const [closetime, setClosetime] = useState("")
   const [vehicleNumber, setVehicleNumber] = useState("")
@@ -65,6 +67,7 @@ export default function OnboardingPage() {
       if (!token) return
 
       try {
+        const config = getEndpointConfig('AUTH_ME')
         const profile = await apiRequest<{ 
           roles: Role[]; 
           registeredRoles: Role[]; 
@@ -74,7 +77,7 @@ export default function OnboardingPage() {
           customerId?: string;
           restaurantId?: string;
           riderId?: string;
-        }>("/auth/me", { auth: true })
+        }>(config.path, { method: config.method, auth: config.auth })
         
         setUserData({
           userId: profile.data?.userId,
@@ -134,9 +137,8 @@ export default function OnboardingPage() {
         description: description || undefined,
         lat: location.lat ?? undefined,
         lng: location.lng ?? undefined,
-        opentime: time(opentime),
-        closetime: time(closetime),
-        imageurl: imageurl || undefined,
+        openTime: time(opentime),
+        closeTime: time(closetime),
       }
     }
     return {
@@ -206,11 +208,44 @@ export default function OnboardingPage() {
 
     setLoading(true)
     try {
-      const res = await apiRequest(`/${roleMeta[choice].base}/register/request`, {
-        method: "POST",
-        body: buildBody(choice),
-        auth: true,
-      })
+      const endpointKey = `${roleMeta[choice].base.toUpperCase()}_REGISTER_REQUEST` as keyof typeof API_ENDPOINTS
+      const config = getEndpointConfig(endpointKey)
+      
+      let res: ApiResponse
+      if (choice === "RESTAURANT" && imageFile) {
+        // Send as FormData with image file
+        const formData = new FormData()
+        formData.append('imageFile', imageFile)
+        
+        const body = buildBody(choice)
+        Object.entries(body).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, String(value))
+          }
+        })
+        
+        const token = getAccessToken()
+        const response = await fetch(`/api/proxy${config.path}`, {
+          method: config.method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        })
+        
+        if (!response.ok) {
+          throw new ApiError('Failed to send OTP', response.status)
+        }
+        
+        res = await response.json()
+      } else {
+        res = await apiRequest(config.path, {
+          method: config.method,
+          body: buildBody(choice),
+          auth: config.auth,
+        })
+      }
+      
       toast.success(res.message || "OTP sent to your phone.")
       setStep("otp")
     } catch (err) {
@@ -228,10 +263,12 @@ export default function OnboardingPage() {
     }
     setLoading(true)
     try {
-      const res = await apiRequest(`/${roleMeta[choice].base}/register/verify`, {
-        method: "POST",
+      const endpointKey = `${roleMeta[choice].base.toUpperCase()}_REGISTER_VERIFY` as keyof typeof API_ENDPOINTS
+      const config = getEndpointConfig(endpointKey)
+      const res = await apiRequest(config.path, {
+        method: config.method,
         body: { otpCode: otp },
-        auth: true,
+        auth: config.auth,
       })
       if (res.accessToken && res.refreshToken) {
         login(res.accessToken, res.refreshToken)
@@ -253,7 +290,8 @@ export default function OnboardingPage() {
 
     setDeletingUser(true)
     try {
-      await apiRequest("/users/delete/request", { method: "POST", auth: true })
+      const config = getEndpointConfig('USERS_DELETE_REQUEST')
+      await apiRequest(config.path, { method: config.method, auth: config.auth })
       toast.success("OTP sent to your phone")
       setDeleteUserStep("otp")
     } catch (err) {
@@ -272,10 +310,11 @@ export default function OnboardingPage() {
 
     setDeletingUser(true)
     try {
-      await apiRequest("/users/delete/complete", {
-        method: "POST",
+      const config = getEndpointConfig('USERS_DELETE_COMPLETE')
+      await apiRequest(config.path, {
+        method: config.method,
         body: { otpCode: deleteUserOtp },
-        auth: true,
+        auth: config.auth,
       })
       toast.success("Account deleted successfully")
       logout()
@@ -437,13 +476,56 @@ export default function OnboardingPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Label htmlFor="img">Cover image URL</Label>
-                        <Input
-                          id="img"
-                          value={imageurl}
-                          onChange={(e) => setImageurl(e.target.value)}
-                          placeholder="https://…"
-                        />
+                        <Label htmlFor="img">Restaurant Image</Label>
+                        <div className="flex items-center gap-3">
+                          {imagePreview ? (
+                            <div className="relative">
+                              <img
+                                src={imagePreview}
+                                alt="Restaurant preview"
+                                className="h-24 w-24 rounded-lg object-cover"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-6 w-6"
+                                onClick={() => {
+                                  setImageFile(null)
+                                  setImagePreview("")
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-24 w-24 rounded-lg border-2 border-dashed border-muted-foreground/25">
+                              <Store className="h-8 w-8 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <Input
+                              id="img"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  const reader = new FileReader()
+                                  reader.onloadend = () => {
+                                    setImageFile(file)
+                                    setImagePreview(reader.result as string)
+                                  }
+                                  reader.readAsDataURL(file)
+                                }
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Upload an image of your restaurant
+                            </p>
+                          </div>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-2">
