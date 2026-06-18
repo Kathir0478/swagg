@@ -1,4 +1,5 @@
 import type { ApiResponse, Role } from "./types"
+import { getEndpointConfig } from "./api-endpoints"
 
 // All requests go through our Next.js proxy at /api/proxy -> backend /api/*
 const PROXY_BASE = "/api/proxy"
@@ -65,8 +66,9 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) return null
 
-  const res = await fetch(`${PROXY_BASE}/auth/refresh`, {
-    method: "POST",
+  const config = getEndpointConfig('AUTH_REFRESH')
+  const res = await fetch(`${PROXY_BASE}${config.path}`, {
+    method: config.method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),
   })

@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider"
 import { updateRider, deleteRider } from "@/lib/services"
 import { OtpInput } from "@/components/otp-input"
 import { apiRequest, getAccessToken } from "@/lib/api"
+import { getEndpointConfig } from "@/lib/api-endpoints"
 import { AddressMapPicker, type LocationValue } from "@/components/address-map-picker"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
@@ -60,6 +61,7 @@ export default function RiderPage() {
     }
 
     try {
+      const config = getEndpointConfig('AUTH_ME')
       const profile = await apiRequest<{
         roles: string[]
         registeredRoles: string[]
@@ -79,7 +81,7 @@ export default function RiderPage() {
         address?: string
         email?: string
         phone?: string
-      }>("/auth/me", { auth: true })
+      }>(config.path, { method: config.method, auth: config.auth })
 
       if (profile.data) {
         setRiderData({
@@ -156,7 +158,8 @@ export default function RiderPage() {
 
     setDeleting(true)
     try {
-      await apiRequest("/riders/delete/request", { method: "POST", auth: true })
+      const config = getEndpointConfig('RIDERS_DELETE_REQUEST')
+      await apiRequest(config.path, { method: config.method, auth: config.auth })
       toast.success("OTP sent to your phone")
       setDeleteStep("otp")
     } catch (err) {
@@ -175,10 +178,11 @@ export default function RiderPage() {
 
     setDeleting(true)
     try {
-      const res = await apiRequest("/riders/delete/complete", {
-        method: "POST",
+      const config = getEndpointConfig('RIDERS_DELETE_COMPLETE')
+      const res = await apiRequest(config.path, {
+        method: config.method,
         body: { otpCode: deleteOtp },
-        auth: true,
+        auth: config.auth,
       })
       if (res.accessToken && res.refreshToken) {
         login(res.accessToken, res.refreshToken)
