@@ -128,36 +128,20 @@ export function AddressMapPicker({ value, onChange, label = "Address" }: Address
     })
   }
 
-  // Fallback UI when no API key is configured.
+  // Error UI when no API key is configured.
   if (error === "missing-key") {
     return (
       <div className="space-y-2">
-        <Label htmlFor="address-fallback">{label}</Label>
-        <Input
-          id="address-fallback"
-          placeholder="Enter your full address"
-          value={value.address}
-          onChange={(e) => onChange({ ...value, address: e.target.value })}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            type="number"
-            step="any"
-            placeholder="Latitude"
-            value={value.lat ?? ""}
-            onChange={(e) => onChange({ ...value, lat: e.target.value ? Number(e.target.value) : null })}
-          />
-          <Input
-            type="number"
-            step="any"
-            placeholder="Longitude"
-            value={value.lng ?? ""}
-            onChange={(e) => onChange({ ...value, lng: e.target.value ? Number(e.target.value) : null })}
-          />
+        <Label>{label}</Label>
+        <div className="flex items-center gap-2 rounded-lg border bg-muted p-4">
+          <MapPin className="size-5 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">Google Maps API Key Required</p>
+            <p className="text-xs text-muted-foreground">
+              Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file to enable address search and map selection.
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Add a NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address search and the map view.
-        </p>
       </div>
     )
   }
@@ -178,7 +162,8 @@ export function AddressMapPicker({ value, onChange, label = "Address" }: Address
           id="address-search"
           className="pl-9"
           placeholder="Search for your address"
-          defaultValue={value.address}
+          value={value.address}
+          onChange={(e) => onChange({ ...value, address: e.target.value })}
         />
       </div>
       <div
