@@ -8,7 +8,7 @@ export async function listRestaurants() {
 }
 
 export async function getRestaurant(id: string) {
-    const res = await apiRequest<Restaurant>(`/restaurants/${id}`)
+    const res = await apiRequest<Restaurant>(`/restaurants/${id}`, { auth: true })
     return res.data
 }
 
@@ -18,7 +18,7 @@ export async function updateRestaurant(body: Record<string, unknown>) {
 
 // ---------- Customers ----------
 export async function getCustomer(id: string) {
-    const res = await apiRequest<Customer>(`/customers/${id}`)
+    const res = await apiRequest<Customer>(`/customers/${id}`, { auth: true })
     return res.data
 }
 
@@ -28,7 +28,7 @@ export async function updateCustomer(body: Record<string, unknown>) {
 
 // ---------- Riders ----------
 export async function getRider(id: string) {
-    const res = await apiRequest<Rider>(`/riders/${id}`)
+    const res = await apiRequest<Rider>(`/riders/${id}`, { auth: true })
     return res.data
 }
 

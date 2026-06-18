@@ -19,7 +19,7 @@ import type { Gender } from "@/lib/types"
 
 export default function RiderPage() {
   const router = useRouter()
-  const { roles, activeRole, logout } = useAuth()
+  const { roles, activeRole, logout, login } = useAuth()
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -119,21 +119,26 @@ export default function RiderPage() {
 
     try {
       const updateData: Record<string, unknown> = {
-        riderVehicleNumber: riderData.riderVehicleNumber || undefined,
-        riderDlNumber: riderData.riderDlNumber || undefined,
-        riderLat: location.lat ?? undefined,
-        riderLng: location.lng ?? undefined,
-        riderAddress: location.address || undefined,
+        riderId: riderData.riderId || undefined,
+        name: riderData.riderName || undefined,
+        vehicleNumber: riderData.riderVehicleNumber || undefined,
+        dlNumber: riderData.riderDlNumber || undefined,
+        lat: location.lat ?? undefined,
+        lng: location.lng ?? undefined,
+        address: location.address || undefined,
       }
 
       if (riderData.riderDob) {
-        updateData.riderDob = new Date(riderData.riderDob).toISOString()
+        updateData.dob = new Date(riderData.riderDob).toISOString()
       }
       if (riderData.riderGender) {
-        updateData.riderGender = riderData.riderGender
+        updateData.gender = riderData.riderGender
       }
 
-      await updateRider(updateData)
+      const res = await updateRider(updateData)
+      if (res.accessToken && res.refreshToken) {
+        login(res.accessToken, res.refreshToken)
+      }
       toast.success("Rider details updated successfully")
       setEditMode(false)
       fetchRiderDetails()
@@ -170,11 +175,14 @@ export default function RiderPage() {
 
     setDeleting(true)
     try {
-      await apiRequest("/riders/delete/complete", {
+      const res = await apiRequest("/riders/delete/complete", {
         method: "POST",
         body: { otpCode: deleteOtp },
         auth: true,
       })
+      if (res.accessToken && res.refreshToken) {
+        login(res.accessToken, res.refreshToken)
+      }
       toast.success("Account deleted successfully")
       logout()
       router.push("/login")

@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { useRequireRole } from "@/lib/use-require-role"
 import { apiRequest, ApiError, getAccessToken } from "@/lib/api"
+import { getCustomer, getRestaurant, getRider } from "@/lib/services"
 import { AddressMapPicker, type LocationValue } from "@/components/address-map-picker"
 import { OtpInput } from "@/components/otp-input"
 import { SiteHeader } from "@/components/site-header"
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShoppingBag, Store, Bike, ArrowLeft, Check } from "lucide-react"
+import { ShoppingBag, Store, Bike, ArrowLeft, Check, Trash2 } from "lucide-react"
 import type { Gender, Role } from "@/lib/types"
 
 type Choice = "CUSTOMER" | "RESTAURANT" | "RIDER"
@@ -35,12 +36,16 @@ const roleHome: Record<Choice, string> = {
 export default function OnboardingPage() {
   const { ready } = useRequireRole()
   const router = useRouter()
-  const { roles, selectRole } = useAuth()
+  const { roles, selectRole, login, logout } = useAuth()
 
   const [choice, setChoice] = useState<Choice | null>(null)
   const [step, setStep] = useState<"details" | "otp">("details")
   const [loading, setLoading] = useState(false)
   const [otp, setOtp] = useState("")
+  const [deletingUser, setDeletingUser] = useState(false)
+  const [deleteUserStep, setDeleteUserStep] = useState<"confirm" | "otp">("confirm")
+  const [deleteUserOtp, setDeleteUserOtp] = useState("")
+  const [userData, setUserData] = useState<{ userId?: string; email?: string; phone?: string } | null>(null)
 
   // shared fields
   const [location, setLocation] = useState<LocationValue>({ address: "", lat: null, lng: null })
@@ -53,20 +58,55 @@ export default function OnboardingPage() {
   const [vehicleNumber, setVehicleNumber] = useState("")
   const [dlNumber, setDlNumber] = useState("")
 
-  // Fetch user profile on mount and redirect if already registered
+  // Fetch user profile on mount and check entity data
   useEffect(() => {
     const fetchUserProfile = async () => {
       const token = getAccessToken()
       if (!token) return
 
       try {
-        const profile = await apiRequest<{ roles: Role[]; registeredRoles: Role[] }>("/auth/me", { auth: true })
+        const profile = await apiRequest<{ 
+          roles: Role[]; 
+          registeredRoles: Role[]; 
+          userId?: string; 
+          email?: string; 
+          phone?: string;
+          customerId?: string;
+          restaurantId?: string;
+          riderId?: string;
+        }>("/auth/me", { auth: true })
         
-        // If user has registered roles, redirect to the first available dashboard
+        setUserData({
+          userId: profile.data?.userId,
+          email: profile.data?.email,
+          phone: profile.data?.phone,
+        })
+
+        // If user has registered roles, check if entity data exists
         if (profile.data?.registeredRoles && profile.data.registeredRoles.length > 0) {
           const firstRole = profile.data.registeredRoles[0] as Choice
-          selectRole(firstRole as Role)
-          router.push(roleHome[firstRole])
+          
+          // Check if entity data exists by calling the specific endpoint
+          try {
+            if (firstRole === "CUSTOMER" && profile.data.customerId) {
+              await getCustomer(profile.data.customerId)
+            } else if (firstRole === "RESTAURANT" && profile.data.restaurantId) {
+              await getRestaurant(profile.data.restaurantId)
+            } else if (firstRole === "RIDER" && profile.data.riderId) {
+              await getRider(profile.data.riderId)
+            }
+            
+            // If data exists, redirect to dashboard
+            selectRole(firstRole as Role)
+            router.push(roleHome[firstRole])
+          } catch (entityErr) {
+            // If entity data not found (404), stay on onboarding page
+            if (entityErr instanceof ApiError && entityErr.status === 404) {
+              console.log("Entity data not found, showing role selection")
+            } else {
+              console.error("Error checking entity data:", entityErr)
+            }
+          }
         }
       } catch (err) {
         // If profile fetch fails, continue with onboarding
@@ -188,11 +228,14 @@ export default function OnboardingPage() {
     }
     setLoading(true)
     try {
-      await apiRequest(`/${roleMeta[choice].base}/register/verify`, {
+      const res = await apiRequest(`/${roleMeta[choice].base}/register/verify`, {
         method: "POST",
         body: { otpCode: otp },
         auth: true,
       })
+      if (res.accessToken && res.refreshToken) {
+        login(res.accessToken, res.refreshToken)
+      }
       selectRole(choice as Role)
       toast.success(`Registered as ${roleMeta[choice].title}!`)
       router.push(roleHome[choice])
@@ -200,6 +243,47 @@ export default function OnboardingPage() {
       toast.error(err instanceof ApiError ? err.message : "Invalid OTP.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteUserRequest = async () => {
+    if (!confirm("Are you sure you want to delete your entire account? This will delete all your data and cannot be undone.")) {
+      return
+    }
+
+    setDeletingUser(true)
+    try {
+      await apiRequest("/users/delete/request", { method: "POST", auth: true })
+      toast.success("OTP sent to your phone")
+      setDeleteUserStep("otp")
+    } catch (err) {
+      toast.error("Failed to send OTP")
+    } finally {
+      setDeletingUser(false)
+    }
+  }
+
+  const handleDeleteUserConfirm = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (deleteUserOtp.length < 4) {
+      toast.error("Enter the OTP code")
+      return
+    }
+
+    setDeletingUser(true)
+    try {
+      await apiRequest("/users/delete/complete", {
+        method: "POST",
+        body: { otpCode: deleteUserOtp },
+        auth: true,
+      })
+      toast.success("Account deleted successfully")
+      logout()
+      router.push("/login")
+    } catch (err) {
+      toast.error("Failed to delete account")
+    } finally {
+      setDeletingUser(false)
     }
   }
 
@@ -247,6 +331,73 @@ export default function OnboardingPage() {
                 )
               })}
             </div>
+
+            {userData && (
+              <Card className="mt-8 border-destructive/50">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <h3 className="font-semibold text-destructive">Account Information</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {userData.email} • {userData.phone}
+                      </p>
+                    </div>
+                    {deleteUserStep === "confirm" ? (
+                      <Button
+                        variant="destructive"
+                        onClick={handleDeleteUserRequest}
+                        disabled={deletingUser}
+                        className="w-full sm:w-auto"
+                      >
+                        {deletingUser ? (
+                          <>Sending OTP...</>
+                        ) : (
+                          <>
+                            <Trash2 className="size-4 mr-2" />
+                            Delete Account
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <form onSubmit={handleDeleteUserConfirm} className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2">
+                          <Label>Enter OTP to confirm account deletion</Label>
+                          <OtpInput value={deleteUserOtp} onChange={setDeleteUserOtp} />
+                        </div>
+                        <div className="flex gap-3">
+                          <Button
+                            type="submit"
+                            variant="destructive"
+                            disabled={deletingUser}
+                            className="flex-1"
+                          >
+                            {deletingUser ? (
+                              <>Deleting...</>
+                            ) : (
+                              <>
+                                <Trash2 className="size-4 mr-2" />
+                                Confirm Delete
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setDeleteUserStep("confirm")
+                              setDeleteUserOtp("")
+                            }}
+                            disabled={deletingUser}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </>
         ) : (
           <Card>
