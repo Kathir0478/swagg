@@ -182,6 +182,12 @@ export const API_ENDPOINTS: Record<string, ApiEndpointConfig> = {
     auth: true,
     description: 'List all foods for a restaurant'
   },
+  FOODS_LIST: {
+    path: '/foods/restaurant',
+    method: 'GET',
+    auth: true,
+    description: 'List all foods for authenticated restaurant'
+  },
   FOODS_LIST_AVAILABLE: {
     path: '/foods/restaurant/:restaurantId/available',
     method: 'GET',

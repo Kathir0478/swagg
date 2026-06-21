@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { UtensilsCrossed, LogOut, User } from "lucide-react"
+import { UtensilsCrossed, LogOut, User, Utensils } from "lucide-react"
 import type { Role } from "@/lib/types"
 
 const roleHome: Record<string, string> = {
@@ -67,7 +67,19 @@ export function SiteHeader() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {activeRole && activeRole !== "USER" && (
+                {activeRole === "RESTAURANT" && (
+                  <>
+                    <DropdownMenuItem onClick={() => router.push("/restaurant/menu")}>
+                      <Utensils className="size-4 mr-2" />
+                      Menu
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/restaurant/profile")}>
+                      <User className="size-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {activeRole && activeRole !== "USER" && activeRole !== "RESTAURANT" && (
                   <DropdownMenuItem onClick={() => router.push(`${roleHome[activeRole]}/profile`)}>
                     Profile & Settings
                   </DropdownMenuItem>
