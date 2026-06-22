@@ -1,13 +1,16 @@
 "use client"
 
-import useSWR from "swr"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { listRestaurants } from "@/lib/services"
+import { useRouter } from "next/navigation"
+import { listRestaurants, getCustomer } from "@/lib/services"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin, Store, UtensilsCrossed } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Clock, MapPin, Store, UtensilsCrossed, User, Search, LogOut } from "lucide-react"
 import { useCart } from "@/components/cart-provider"
+import { useAuth } from "@/components/auth-provider"
 
 function RestaurantSkeletons() {
   return (
@@ -26,16 +29,66 @@ function RestaurantSkeletons() {
 }
 
 export default function CustomerHome() {
-  const { data: restaurants, isLoading, error } = useSWR("restaurants", listRestaurants, {
-    revalidateOnFocus: false,
-  })
+  const router = useRouter()
+  const { logout, activeRole } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [restaurants, setRestaurants] = useState<any[]>([])
   const { cart } = useCart()
+
+  useEffect(() => {
+    fetchCustomerAndRestaurants()
+  }, [])
+
+  const fetchCustomerAndRestaurants = async () => {
+    try {
+      // First fetch customer details to ensure authentication
+      await getCustomer()
+      
+      // Then fetch restaurants
+      const data = await listRestaurants()
+      setRestaurants(data)
+    } catch (err) {
+      console.error("Failed to load data", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    logout()
+    router.push("/login")
+  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">Customer Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Browse restaurants and order food</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/customer/search">
+            <Button variant="outline">
+              <Search className="size-4 mr-2" />
+              Search
+            </Button>
+          </Link>
+          <Link href="/customer/profile">
+            <Button variant="outline">
+              <User className="size-4 mr-2" />
+              Profile
+            </Button>
+          </Link>
+          <Button variant="destructive" onClick={handleLogout}>
+            <LogOut className="size-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">Restaurants near you</h1>
+          <h2 className="text-xl font-semibold tracking-tight text-balance">Restaurants near you</h2>
           <p className="text-sm text-muted-foreground">Pick a place and start building your order.</p>
         </div>
         {cart && cart.itemCount > 0 && (
@@ -48,15 +101,7 @@ export default function CustomerHome() {
         )}
       </div>
 
-      {error && (
-        <Card>
-          <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Could not load restaurants. Please check your connection and try again.
-          </CardContent>
-        </Card>
-      )}
-
-      {isLoading ? (
+      {loading ? (
         <RestaurantSkeletons />
       ) : restaurants && restaurants.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

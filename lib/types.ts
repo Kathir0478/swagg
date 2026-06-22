@@ -85,12 +85,20 @@ export interface Restaurant {
 
 export interface Customer {
   customerId: string
+  userId?: string
+  name?: string
   username?: string
   address?: string
   dob?: string
   gender?: Gender
   lat?: number
   lng?: number
+  isActive?: boolean
+  isVerified?: boolean
+  createdAt?: string
+  updatedAt?: string
+  email?: string
+  phone?: string
 }
 
 export interface Rider {

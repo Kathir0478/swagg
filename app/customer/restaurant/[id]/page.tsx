@@ -9,7 +9,7 @@ import {
   addCartItem,
   createCart,
   getRestaurant,
-  listFoodsByRestaurant,
+  getRestaurantMenu,
   removeCartItem,
 } from "@/lib/services"
 import { useCart } from "@/components/cart-provider"
@@ -30,7 +30,7 @@ export default function RestaurantMenuPage({ params }: { params: Promise<{ id: s
   })
   const { data: foods, isLoading } = useSWR(
     ["foods", id],
-    () => listFoodsByRestaurant(id, true),
+    () => getRestaurantMenu(id),
     { revalidateOnFocus: false },
   )
 
