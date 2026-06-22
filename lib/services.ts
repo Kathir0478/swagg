@@ -22,16 +22,46 @@ export async function updateRestaurant(body: Record<string, unknown>) {
 }
 
 // ---------- Customers ----------
-export async function getCustomer(id: string) {
-    const path = buildEndpointPath('CUSTOMERS_GET', { id })
+export async function getCustomer() {
     const config = getEndpointConfig('CUSTOMERS_GET')
-    const res = await apiRequest<Customer>(path, { method: config.method, auth: config.auth })
-    return res.data
+    const res = await apiRequest<Customer>(config.path, { method: config.method, auth: config.auth })
+    // The API returns the customer object directly, not wrapped in a data property
+    return res.data || res as Customer
 }
 
 export async function updateCustomer(body: Record<string, unknown>) {
     const config = getEndpointConfig('CUSTOMERS_UPDATE')
     return apiRequest<Customer>(config.path, { method: config.method, body, auth: config.auth })
+}
+
+export async function customerRegisterRequest(body: Record<string, unknown>) {
+    const config = getEndpointConfig('CUSTOMERS_REGISTER_REQUEST')
+    return apiRequest(config.path, { method: config.method, body, auth: config.auth })
+}
+
+export async function customerRegisterVerify(body: Record<string, unknown>) {
+    const config = getEndpointConfig('CUSTOMERS_REGISTER_VERIFY')
+    return apiRequest(config.path, { method: config.method, body, auth: config.auth })
+}
+
+export async function customerLoginRequest(body: Record<string, unknown>) {
+    const config = getEndpointConfig('CUSTOMERS_LOGIN_REQUEST')
+    return apiRequest(config.path, { method: config.method, body, auth: config.auth })
+}
+
+export async function customerLoginVerify(body: Record<string, unknown>) {
+    const config = getEndpointConfig('CUSTOMERS_LOGIN_VERIFY')
+    return apiRequest(config.path, { method: config.method, body, auth: config.auth })
+}
+
+export async function customerDeleteRequest() {
+    const config = getEndpointConfig('CUSTOMERS_DELETE_REQUEST')
+    return apiRequest(config.path, { method: config.method, auth: config.auth })
+}
+
+export async function customerDeleteComplete(body: Record<string, unknown>) {
+    const config = getEndpointConfig('CUSTOMERS_DELETE_COMPLETE')
+    return apiRequest(config.path, { method: config.method, body, auth: config.auth })
 }
 
 // ---------- Riders ----------
@@ -86,6 +116,19 @@ export async function setFoodAvailability(foodId: string, isAvailable: boolean) 
         method: config.method,
         auth: config.auth,
     })
+}
+
+export async function getAllFoods() {
+    const config = getEndpointConfig('FOODS_ALL')
+    const res = await apiRequest<Food[]>(config.path, { method: config.method, auth: config.auth })
+    return res.data ?? []
+}
+
+export async function getRestaurantMenu(restaurantId: string) {
+    const path = buildEndpointPath('FOODS_RESTAURANT_MENU', { restaurantId })
+    const config = getEndpointConfig('FOODS_RESTAURANT_MENU')
+    const res = await apiRequest<Food[]>(path, { method: config.method, auth: config.auth })
+    return res.data ?? []
 }
 
 // ---------- Carts ----------
